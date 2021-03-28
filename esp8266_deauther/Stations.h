@@ -1,5 +1,6 @@
-#ifndef Stations_h
-#define Stations_h
+/* This software is licensed under the MIT License: https://github.com/spacehuhntech/esp8266_deauther */
+
+#pragma once
 
 #include "Arduino.h"
 extern "C" {
@@ -20,7 +21,7 @@ extern String searchVendor(uint8_t* mac);
 extern bool macMulticast(uint8_t* mac);
 extern bool macValid(uint8_t* mac);
 extern bool macBroadcast(uint8_t* mac);
-extern String bytesToStr(uint8_t* b, uint32_t size);
+extern String bytesToStr(const uint8_t* b, uint32_t size);
 
 class Stations {
     public:
@@ -94,5 +95,3 @@ class Stations {
         void internal_remove(int num);
         void internal_removeAll();
 };
-
-#endif // ifndef Stations_h

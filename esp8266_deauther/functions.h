@@ -1,12 +1,13 @@
-#ifndef functions_h
-#define functions_h
+/* This software is licensed under the MIT License: https://github.com/spacehuhntech/esp8266_deauther */
+
+#pragma once
 
 #include "Arduino.h"
-#include <FS.h>
+#include <LittleFS.h>
 extern "C" {
   #include "user_interface.h"
 }
-#include "ArduinoJson.h"
+#include "src/ArduinoJson-v5.13.5/ArduinoJson.h"
 
 /*
    Here is a collection of useful functions and variables.
@@ -196,6 +197,7 @@ bool eqls(const char* str, const char* keywordPtr) {
     if (strlen(str) > 255) return false;  // when string too long
 
     char keyword[strlen_P(keywordPtr) + 1];
+
     strcpy_P(keyword, keywordPtr);
 
     uint8_t lenStr     = strlen(str);
@@ -247,15 +249,15 @@ bool s2b(String input) {
 }
 
 // ===== PRINT FUNCTIONS ===== //
-void prnt(String s) {
+void prnt(const String s) {
     Serial.print(s);
 }
 
-void prnt(bool b) {
+void prnt(const bool b) {
     Serial.print(b2s(b));
 }
 
-void prnt(char c) {
+void prnt(const char c) {
     Serial.print(c);
 }
 
@@ -263,23 +265,31 @@ void prnt(const char* ptr) {
     Serial.print(FPSTR(ptr));
 }
 
-void prnt(int i) {
+void prnt(const char* ptr, int len) {
+    for (int i = 0; i<len; i++) prnt(ptr[i]);
+}
+
+void prnt(const int i) {
     Serial.print((String)i);
+}
+
+void prnt(const uint32_t i) {
+    Serial.printf("%u", i);
 }
 
 void prntln() {
     Serial.println();
 }
 
-void prntln(String s) {
+void prntln(const String s) {
     Serial.println(s);
 }
 
-void prntln(bool b) {
+void prntln(const bool b) {
     Serial.println(b2s(b));
 }
 
-void prntln(char c) {
+void prntln(const char c) {
     Serial.println(c);
 }
 
@@ -287,13 +297,22 @@ void prntln(const char* ptr) {
     Serial.println(FPSTR(ptr));
 }
 
-void prntln(int i) {
+void prntln(const char* ptr, int len) {
+    for (int i = 0; i<len; i++) prnt(ptr[i]);
+    prntln();
+}
+
+void prntln(const int i) {
     Serial.println((String)i);
 }
 
+void prntln(const uint32_t i) {
+    Serial.printf("%u\r\n", i);
+}
+
 /* ===== WiFi ===== */
-void setWifiChannel(uint8_t ch) {
-    if ((ch != wifi_channel) && (ch > 0) && (ch < 15)) {
+void setWifiChannel(uint8_t ch, bool force) {
+    if (((ch != wifi_channel) || force) && (ch < 15)) {
         wifi_channel = ch;
         wifi_set_channel(wifi_channel);
     }
@@ -307,6 +326,7 @@ void setOutputPower(float dBm) {
     }
 
     uint8_t val = (dBm * 4.0f);
+
     system_phy_set_max_tpw(val);
 }
 
@@ -402,7 +422,7 @@ String searchVendor(uint8_t* mac) {
 }
 
 /* ===== STRING ===== */
-String bytesToStr(uint8_t* b, uint32_t size) {
+String bytesToStr(const uint8_t* b, uint32_t size) {
     String str;
 
     for (uint32_t i = 0; i < size; i++) {
@@ -414,7 +434,7 @@ String bytesToStr(uint8_t* b, uint32_t size) {
     return str;
 }
 
-String macToStr(uint8_t* mac) {
+String macToStr(const uint8_t* mac) {
     return bytesToStr(mac, 6);
 }
 
@@ -431,6 +451,29 @@ bool strToMac(String macStr, uint8_t* mac) {
     }
 
     for (uint8_t i = 0; i < 6; i++) mac[i] = strtoul((macStr.substring(i * 2, i * 2 + 2)).c_str(), NULL, 16);
+
+    return true;
+}
+
+bool strToIP(String ipStr, uint8_t* ip) {
+    String parts[4]  = { "0", "0", "0", "0" };
+    int    ipAddr[4] = { -1, -1, -1, -1 };
+
+    int j = 0;
+
+    for (int i = 0; i<ipStr.length(); i++) {
+        if (ipStr[i] == '.') j++;
+        else parts[j] += ipStr[i];
+    }
+
+    for (int i = 0; i<4; i++) {
+        ipAddr[i] = parts[i].toInt();
+        if ((ipAddr[i] < 0) || (ipAddr[i] > 255)) return false;
+    }
+
+    for (int i = 0; i<4; i++) {
+        ip[i] = (uint8_t)ipAddr[i];
+    }
 
     return true;
 }
@@ -506,7 +549,7 @@ String leftRight(String a, String b, int len) {
 /* ===== SPIFFS ===== */
 bool progmemToSpiffs(const char* adr, int len, String path) {
     prnt(str(SETUP_COPYING) + path + str(SETUP_PROGMEM_TO_SPIFFS));
-    File f = SPIFFS.open(path, "w+");
+    File f = LittleFS.open(path, "w+");
 
     if (!f) {
         prntln(SETUP_ERROR);
@@ -525,7 +568,7 @@ bool progmemToSpiffs(const char* adr, int len, String path) {
 
 bool readFile(String path, String& buf) {
     if (path.charAt(0) != SLASH) path = String(SLASH) + path;
-    File f = SPIFFS.open(path, "r");
+    File f = LittleFS.open(path, "r");
 
     if (!f) return false;
 
@@ -540,7 +583,7 @@ bool readFile(String path, String& buf) {
 
 void readFileToSerial(String path, bool showLineNum) {
     if (path.charAt(0) != SLASH) path = String(SLASH) + path;
-    File f = SPIFFS.open(path, "r");
+    File f = LittleFS.open(path, "r");
 
     if (!f) {
         prnt(F_ERROR_READING_FILE);
@@ -573,14 +616,14 @@ bool copyFile(String pathFrom, String pathTo) {
 
     if (pathTo.charAt(0) != SLASH) pathTo = String(SLASH) + pathTo;
 
-    if (!SPIFFS.exists(pathFrom)) {
+    if (!LittleFS.exists(pathFrom)) {
         prnt(F_ERROR_FILE);
         prntln(pathFrom);
         return false;
     }
 
-    File f1 = SPIFFS.open(pathFrom, "r");
-    File f2 = SPIFFS.open(pathTo, "w+");
+    File f1 = LittleFS.open(pathFrom, "r");
+    File f2 = LittleFS.open(pathTo, "w+");
 
     if (!f1 || !f2) return false;
 
@@ -596,19 +639,19 @@ bool renameFile(String pathFrom, String pathTo) {
 
     if (pathTo.charAt(0) != SLASH) pathTo = String(SLASH) + pathTo;
 
-    if (!SPIFFS.exists(pathFrom)) {
+    if (!LittleFS.exists(pathFrom)) {
         prnt(F_ERROR_FILE);
         prntln(pathFrom);
         return false;
     }
 
-    SPIFFS.rename(pathFrom, pathTo);
+    LittleFS.rename(pathFrom, pathTo);
     return true;
 }
 
 bool writeFile(String path, String& buf) {
     if (path.charAt(0) != SLASH) path = String(SLASH) + path;
-    File f = SPIFFS.open(path, "w+");
+    File f = LittleFS.open(path, "w+");
 
     if (!f) return false;
 
@@ -622,7 +665,7 @@ bool writeFile(String path, String& buf) {
 
 bool appendFile(String path, String& buf) {
     if (path.charAt(0) != SLASH) path = String(SLASH) + path;
-    File f = SPIFFS.open(path, "a+");
+    File f = LittleFS.open(path, "a+");
 
     if (!f) return false;
 
@@ -637,7 +680,7 @@ bool appendFile(String path, String& buf) {
 void checkFile(String path, String data) {
     if (path.charAt(0) != SLASH) path = String(SLASH) + path;
 
-    if (!SPIFFS.exists(path)) writeFile(path, data);
+    if (!LittleFS.exists(path)) writeFile(path, data);
 }
 
 bool removeLines(String path, int lineFrom, int lineTo) {
@@ -648,8 +691,8 @@ bool removeLines(String path, int lineFrom, int lineTo) {
 
     String tmpPath = str(F_TMP) + path + str(F_COPY);
 
-    File f  = SPIFFS.open(path, "r");
-    File f2 = SPIFFS.open(tmpPath, "w");
+    File f  = LittleFS.open(path, "r");
+    File f2 = LittleFS.open(tmpPath, "w");
 
     if (!f || !f2) return false;
 
@@ -663,8 +706,8 @@ bool removeLines(String path, int lineFrom, int lineTo) {
 
     f.close();
     f2.close();
-    SPIFFS.remove(path);
-    SPIFFS.rename(tmpPath, path);
+    LittleFS.remove(path);
+    LittleFS.rename(tmpPath, path);
 
     return true;
 }
@@ -677,8 +720,8 @@ bool replaceLine(String path, int line, String& buf) {
 
     String tmpPath = "/tmp" + path + "_copy";
 
-    File f  = SPIFFS.open(path, "r");
-    File f2 = SPIFFS.open(tmpPath, "w");
+    File f  = LittleFS.open(path, "r");
+    File f2 = LittleFS.open(tmpPath, "w");
 
     if (!f || !f2) return false;
 
@@ -698,8 +741,8 @@ bool replaceLine(String path, int line, String& buf) {
 
     f.close();
     f2.close();
-    SPIFFS.remove(path);
-    SPIFFS.rename(tmpPath, path);
+    LittleFS.remove(path);
+    LittleFS.rename(tmpPath, path);
 
     return true;
 }
@@ -735,7 +778,7 @@ JsonVariant parseJSONFile(String path, DynamicJsonBuffer& jsonBuffer) {
 
 bool removeFile(String path) {
     if (path.charAt(0) != SLASH) path = String(SLASH) + path;
-    return SPIFFS.remove(path);
+    return LittleFS.remove(path);
 }
 
 void saveJSONFile(String path, JsonObject& root) {
@@ -786,5 +829,3 @@ String formatBytes(size_t bytes) {
     else if (bytes < (1024 * 1024 * 1024)) return String(bytes / 1024.0 / 1024.0) + "MB";
     else return String(bytes / 1024.0 / 1024.0 / 1024.0) + "GB";
 }
-
-#endif // ifndef functions_h

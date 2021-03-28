@@ -1,21 +1,20 @@
-#ifndef SSIDs_h
-#define SSIDs_h
+/* This software is licensed under the MIT License: https://github.com/spacehuhntech/esp8266_deauther */
+
+#pragma once
 
 #include "Arduino.h"
 #include <ESP8266WiFi.h>
-#include <FS.h>
 extern "C" {
   #include "user_interface.h"
 }
-#include "ArduinoJson.h"
+#include "src/ArduinoJson-v5.13.5/ArduinoJson.h"
 #include "language.h"
 #include "SimpleList.h"
-#include "Settings.h"
 #include "Accesspoints.h"
 
 #define SSID_LIST_SIZE 60
 
-extern Settings settings;
+
 extern uint32_t currentTime;
 extern Accesspoints accesspoints;
 
@@ -83,5 +82,3 @@ class SSIDs {
         void internal_remove(int num);
         void internal_removeAll();
 };
-
-#endif // ifndef SSIDs_h

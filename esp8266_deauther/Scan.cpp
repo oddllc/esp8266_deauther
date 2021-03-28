@@ -1,4 +1,9 @@
+/* This software is licensed under the MIT License: https://github.com/spacehuhntech/esp8266_deauther */
+
 #include "Scan.h"
+
+#include "settings.h"
+#include "wifi.h"
 
 Scan::Scan() {
     list = new SimpleList<uint16_t>;
@@ -56,7 +61,7 @@ void Scan::start(uint8_t mode, uint32_t time, uint8_t nextmode, uint32_t continu
                  uint8_t channel) {
     if (mode != SCAN_MODE_OFF) stop();
 
-    setWifiChannel(channel);
+    setWifiChannel(channel, true);
     Scan::continueStartTime  = currentTime;
     Scan::snifferPacketTime  = continueStartTime;
     Scan::snifferOutputTime  = continueStartTime;
@@ -102,7 +107,7 @@ void Scan::start(uint8_t mode, uint32_t time, uint8_t nextmode, uint32_t continu
         prntln();
 
         // enable sniffer
-        stopAP();
+        wifi::stopAP();
         wifi_promiscuous_enable(true);
     }
 
@@ -118,7 +123,7 @@ void Scan::start(uint8_t mode, uint32_t time, uint8_t nextmode, uint32_t continu
         prntln(channelHop ? str(SC_ONE_TO) + (String)14 : (String)wifi_channel);
 
         // enable sniffer
-        stopAP();
+        wifi::stopAP();
         wifi_promiscuous_enable(true);
     }
 
@@ -126,7 +131,7 @@ void Scan::start(uint8_t mode, uint32_t time, uint8_t nextmode, uint32_t continu
     else if (mode == SCAN_MODE_OFF) {
         wifi_promiscuous_enable(false);
 
-        if (settings.getWebInterface()) resumeAP();
+        if (settings::getWebSettings().enabled) wifi::resumeAP();
         prntln(SC_STOPPED);
         save(true);
 
@@ -181,7 +186,7 @@ void Scan::update() {
         }
 
         // channel hopping
-        if (channelHop && (currentTime - snifferChannelTime > settings.getChTime())) {
+        if (channelHop && (currentTime - snifferChannelTime > settings::getSnifferSettings().channel_time)) {
             snifferChannelTime = currentTime;
 
             if (scanMode == SCAN_MODE_STATIONS) nextChannel();  // go to next channel an AP is on
@@ -234,7 +239,7 @@ void Scan::setChannel(uint8_t ch) {
     else if (ch < 1) ch = 14;
 
     wifi_promiscuous_enable(0);
-    setWifiChannel(ch);
+    setWifiChannel(ch, true);
     wifi_promiscuous_enable(1);
 }
 
@@ -410,23 +415,23 @@ uint32_t Scan::getPackets(int i) {
 
 String Scan::getMode() {
     switch (scanMode) {
-    case SCAN_MODE_OFF:
-        return str(SC_MODE_OFF);
+        case SCAN_MODE_OFF:
+            return str(SC_MODE_OFF);
 
-    case SCAN_MODE_APS:
-        return str(SC_MODE_AP);
+        case SCAN_MODE_APS:
+            return str(SC_MODE_AP);
 
-    case SCAN_MODE_STATIONS:
-        return str(SC_MODE_ST);
+        case SCAN_MODE_STATIONS:
+            return str(SC_MODE_ST);
 
-    case SCAN_MODE_ALL:
-        return str(SC_MODE_ALL);
+        case SCAN_MODE_ALL:
+            return str(SC_MODE_ALL);
 
-    case SCAN_MODE_SNIFFER:
-        return str(SC_MODE_SNIFFER);
+        case SCAN_MODE_SNIFFER:
+            return str(SC_MODE_SNIFFER);
 
-    default:
-        return String();
+        default:
+            return String();
     }
 }
 
